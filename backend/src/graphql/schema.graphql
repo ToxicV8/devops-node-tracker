@@ -1,0 +1,161 @@
+type User {
+  id: ID!
+  username: String!
+  email: String!
+  name: String
+  role: UserRole!
+  isActive: Boolean!
+  issues: [Issue!]
+  assignedIssues: [Issue!]
+  projects: [Project!]
+  projectMemberships: [ProjectMember!]
+  createdAt: String!
+  updatedAt: String!
+}
+
+type Project {
+  id: ID!
+  name: String!
+  description: String
+  ownerId: ID
+  issues: [Issue!]
+  members: [User!]
+  projectMembers: [ProjectMember!]
+  createdAt: String!
+  updatedAt: String!
+}
+
+type ProjectMember {
+  id: ID!
+  user: User!
+  project: Project!
+  projectRole: ProjectRole!
+  joinedAt: String!
+}
+
+type Issue {
+  id: ID!
+  title: String!
+  description: String
+  status: IssueStatus!
+  priority: IssuePriority!
+  type: IssueType!
+  project: Project!
+  reporter: User!
+  assignee: User
+  comments: [Comment!]
+  createdAt: String!
+  updatedAt: String!
+}
+
+type Comment {
+  id: ID!
+  content: String!
+  author: User!
+  issue: Issue!
+  createdAt: String!
+  updatedAt: String!
+}
+
+enum IssueStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+}
+
+enum IssuePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum IssueType {
+  BUG
+  FEATURE
+  TASK
+  ENHANCEMENT
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  DEVELOPER
+  USER
+}
+
+enum ProjectRole {
+  OWNER
+  MAINTAINER
+  DEVELOPER
+  REPORTER
+  MEMBER
+}
+
+type Query {
+  # User Queries
+  me: User
+  user(id: ID!): User
+  users: [User!]!
+  
+  # Project Queries
+  project(id: ID!): Project
+  projects: [Project!]!
+  
+  # Issue Queries
+  issue(id: ID!): Issue
+  issues(
+    projectId: ID
+    status: IssueStatus
+    priority: IssuePriority
+    type: IssueType
+    assigneeId: ID
+  ): [Issue!]!
+}
+
+type Mutation {
+  # User Mutations
+  createUser(username: String!, email: String!, password: String!, name: String, role: UserRole): User!
+  updateUser(id: ID!, username: String, email: String, name: String, role: UserRole, isActive: Boolean): User!
+  deleteUser(id: ID!): Boolean!
+
+  # Project Mutations
+  createProject(name: String!, description: String): Project!
+  updateProject(id: ID!, name: String, description: String): Project!
+  deleteProject(id: ID!): Boolean!
+  addProjectMember(projectId: ID!, userId: ID!, projectRole: ProjectRole): ProjectMember!
+  updateProjectMemberRole(projectId: ID!, userId: ID!, projectRole: ProjectRole!): ProjectMember!
+  removeProjectMember(projectId: ID!, userId: ID!): Boolean!
+
+  # Issue Mutations
+  createIssue(
+    title: String!
+    description: String
+    status: IssueStatus!
+    priority: IssuePriority!
+    type: IssueType!
+    projectId: ID!
+    assigneeId: ID
+  ): Issue!
+  updateIssue(
+    id: ID!
+    title: String
+    description: String
+    status: IssueStatus
+    priority: IssuePriority
+    type: IssueType
+    assigneeId: ID
+  ): Issue!
+  deleteIssue(id: ID!): Boolean!
+
+  # Comment Mutations
+  createComment(issueId: ID!, content: String!): Comment!
+  updateComment(id: ID!, content: String!): Comment!
+  deleteComment(id: ID!): Boolean!
+}
+
+type Subscription {
+  issueUpdated(projectId: ID!): Issue!
+  commentAdded(issueId: ID!): Comment!
+}

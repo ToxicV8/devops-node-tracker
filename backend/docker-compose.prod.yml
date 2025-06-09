@@ -1,0 +1,43 @@
+
+services:
+  backend:
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL_FILE=/run/secrets/database_url
+      - JWT_SECRET_FILE=/run/secrets/jwt_secret
+    secrets:
+      - database_url
+      - jwt_secret
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  postgres:
+    environment:
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
+    secrets:
+      - db_password
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+secrets:
+  database_url:
+    external: true
+  jwt_secret:
+    external: true
+  db_password:
+    external: true 

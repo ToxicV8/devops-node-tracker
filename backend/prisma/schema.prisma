@@ -1,0 +1,149 @@
+// Prisma Schema für Issue Tracker
+// Generates Prisma Client for TypeScript
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // or "mysql", "sqlite" depending on the need
+  url      = env("DATABASE_URL")
+}
+
+// User Model
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  email     String   @unique
+  password  String   // TODO: Should be hashed
+  name      String?
+  role      UserRole @default(USER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  reportedIssues    Issue[]           @relation("ReportedIssues")
+  assignedIssues    Issue[]           @relation("AssignedIssues")
+  comments          Comment[]
+  projects          Project[]         @relation("ProjectMembers")
+  projectMemberships ProjectMember[]
+
+  @@map("users")
+}
+
+// Project Model
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  ownerId     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  issues  Issue[]
+  members User[]          @relation("ProjectMembers")
+  projectMembers ProjectMember[]
+
+  @@map("projects")
+}
+
+// Project Membership with Roles
+model ProjectMember {
+  id           String      @id @default(cuid())
+  userId       String
+  projectId    String
+  projectRole  ProjectRole @default(MEMBER)
+  joinedAt     DateTime    @default(now())
+
+  // Relationships
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@map("project_members")
+}
+
+// Issue Model
+model Issue {
+  id          String        @id @default(cuid())
+  title       String
+  description String?
+  status      IssueStatus   @default(TODO)
+  priority    IssuePriority @default(MEDIUM)
+  type        IssueType     @default(TASK)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Foreign Keys
+  projectId  String
+  reporterId String
+  assigneeId String?
+
+  // Relationships
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reporter User      @relation("ReportedIssues", fields: [reporterId], references: [id])
+  assignee User?     @relation("AssignedIssues", fields: [assigneeId], references: [id])
+  comments Comment[]
+
+  @@map("issues")
+}
+
+// Comment Model
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Foreign Keys
+  authorId String
+  issueId  String
+
+  // Relationships
+  author User  @relation(fields: [authorId], references: [id])
+  issue  Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@map("comments")
+}
+
+// Enums
+
+// User Roles (Global)
+enum UserRole {
+  ADMIN       // Full Access to Everything
+  MANAGER     // Can Manage Projects
+  DEVELOPER   // Can Edit Issues
+  USER        // Can Create and Comment on Issues
+}
+
+// Project-specific Roles
+enum ProjectRole {
+  OWNER       // Project Owner
+  MAINTAINER  // Can Assign and Manage Issues
+  DEVELOPER   // Can Edit Assigned Issues
+  REPORTER    // Can Create Issues
+  MEMBER      // Can View and Comment on Issues
+}
+
+enum IssueStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+}
+
+enum IssuePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum IssueType {
+  BUG
+  FEATURE
+  TASK
+  ENHANCEMENT
+} 
