@@ -13,7 +13,8 @@ echo "Generating secure credentials..."
 
 # Database password
 if [ ! -f secrets/db_password.txt ]; then
-    openssl rand -base64 32 > secrets/db_password.txt
+    # string in postgres wont work with special characters
+    openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | head -c 32 > secrets/db_password.txt
     echo "Database password generated"
 else
     echo "Database password already exists"
@@ -46,7 +47,6 @@ DATABASE_URL="postgresql://issuetracker:${DB_PASSWORD}@localhost:5432/issuetrack
 
 # Authentication
 JWT_SECRET=${JWT_SECRET}
-JWT_EXPIRES_IN=7d
 
 # Password Hashing
 BCRYPT_ROUNDS=12

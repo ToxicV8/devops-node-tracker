@@ -3,6 +3,7 @@ import { GraphQLError } from 'graphql';
 import { MercuriusContext } from 'mercurius';
 import { PermissionService } from '../services/PermissionService';
 import { ValidationService } from '../services/ValidationService';
+import { AuthService } from '../services/AuthService';
 
 const prisma = new PrismaClient();
 
@@ -80,6 +81,59 @@ export const resolvers = {
   },
 
   Mutation: {
+    login: async (_: any, { username, password }: { username: string, password: string }) => {
+      return AuthService.login(username, password);
+    },
+
+    register: async (_: any, args: any) => {
+      ValidationService.validateUsername(args.username);
+      ValidationService.validateEmail(args.email);
+      ValidationService.validatePassword(args.password);
+
+      // Check if user exists
+      const existingUser = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { username: args.username },
+            { email: args.email }
+          ]
+        }
+      });
+
+      if (existingUser) {
+        throw new GraphQLError('Username or email already exists');
+      }
+
+      // Hash password
+      const hashedPassword = await AuthService.hashPassword(args.password);
+
+      // Create user
+      const user = await prisma.user.create({
+        data: {
+          username: args.username,
+          email: args.email,
+          password: hashedPassword,
+          name: args.name ? ValidationService.sanitizeText(args.name) : null,
+          role: 'USER', // Default role
+        },
+      });
+
+      // Generate token
+      const token = AuthService.generateToken(user.id, user.role);
+
+      return {
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          isActive: user.isActive
+        }
+      };
+    },
+
     createUser: async (_: any, args: any, context: MercuriusContext) => {
       const user = PermissionService.requireAuth(context.user);
       
@@ -118,12 +172,13 @@ export const resolvers = {
         'Only admins can create users'
       );
 
+      const hashedPassword = await AuthService.hashPassword(args.password);
 
       return prisma.user.create({
         data: {
           username: args.username,
           email: args.email,
-          password: args.password,
+          password: hashedPassword,
           name: args.name ? ValidationService.sanitizeText(args.name) : null,
           role: args.role || 'USER',
         },

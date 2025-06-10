@@ -13,6 +13,11 @@ type User {
   updatedAt: String!
 }
 
+type AuthPayload {
+  token: String!
+  user: User!
+}
+
 type Project {
   id: ID!
   name: String!
@@ -119,6 +124,15 @@ type Mutation {
   createUser(username: String!, email: String!, password: String!, name: String, role: UserRole): User!
   updateUser(id: ID!, username: String, email: String, name: String, role: UserRole, isActive: Boolean): User!
   deleteUser(id: ID!): Boolean!
+
+  # Authentication Mutations
+  login(username: String!, password: String!): AuthPayload!
+  register(
+    username: String!
+    email: String!
+    password: String!
+    name: String
+  ): AuthPayload!
 
   # Project Mutations
   createProject(name: String!, description: String): Project!

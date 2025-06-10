@@ -27,12 +27,11 @@ function New-SecurePassword {
     )
     
     # Use cryptographically secure random generation
-    $bytes = New-Object byte[] $Length
-    $rng = [System.Security.Cryptography.RNGCryptoServiceProvider]::Create()
-    $rng.GetBytes($bytes)
-    $rng.Dispose()
     
-    return [Convert]::ToBase64String($bytes)
+    $characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_'
+    $password = -join ((1..$length) | ForEach-Object { $characters[(Get-Random -Minimum 0 -Maximum $characters.Length)] })
+
+    return $password
 }
 
 # Generate database password
@@ -81,7 +80,6 @@ DATABASE_URL="postgresql://issuetracker:$dbPassword@localhost:5432/issuetracker_
 
 # Authentication
 JWT_SECRET=$jwtSecret
-JWT_EXPIRES_IN=7d
 
 # Password Hashing
 BCRYPT_ROUNDS=12

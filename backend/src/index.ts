@@ -4,6 +4,7 @@ import { resolvers } from './graphql/resolvers';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import 'dotenv/config';
+import { AuthService } from './services/AuthService';
 
 // Load Schema
 const schema = readFileSync(join(__dirname, '../graphql', 'schema.graphql'), 'utf8');
@@ -25,11 +26,24 @@ app.register(mercurius, {
   resolvers,
   graphiql: process.env.NODE_ENV !== 'production',
   ide: process.env.NODE_ENV !== 'production',
-  context: (request, reply) => {
-    // Add Authentication Context later
-    return {
-      user: null // TODO: Implement JWT Authentication
-    };
+  context: async (request, reply) => {
+    // Extract JWT from Authorization header
+    const authHeader = request.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return { user: null };
+    }
+
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    
+    try {
+      const user = await AuthService.getUserFromToken(token);
+      return { user };
+    } catch (error) {
+      // Log error but don't fail request - let resolvers handle authentication
+      app.log.warn('Authentication failed:', error);
+      return { user: null };
+    }
   }
 });
 
