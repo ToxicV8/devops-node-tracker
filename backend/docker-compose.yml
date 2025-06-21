@@ -4,7 +4,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: production
     ports:
       - "4000:4000"
     env_file:

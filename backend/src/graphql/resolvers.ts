@@ -32,8 +32,15 @@ export const resolvers = {
       return prisma.user.findUnique({ where: { id: user.id } });
     },
     
-    user: async (_: any, { id }: { id: string }) => {
+    user: async (_: any, { id }: { id: string }, context: MercuriusContext) => {
+      const user = PermissionService.requireAuth(context.user);
       ValidationService.validateId(id, 'User ID');
+      
+      // Admins can see all users, others only themselves
+      if (id !== user.id && !PermissionService.hasGlobalPermission(user, ['ADMIN'])) {
+        throw new GraphQLError('No permission to view this user');
+      }
+      
       return prisma.user.findUnique({ where: { id } });
     },
     
@@ -47,27 +54,120 @@ export const resolvers = {
       return prisma.user.findMany();
     },
 
-    project: async (_: any, { id }: { id: string }) => {
+    project: async (_: any, { id }: { id: string }, context: MercuriusContext) => {
+      const user = PermissionService.requireAuth(context.user);
       ValidationService.validateId(id, 'Project ID');
+      
+      // Check if user has access to the project
+      const hasAccess = PermissionService.hasGlobalPermission(user, ['ADMIN']) ||
+                       await PermissionService.hasProjectPermission(user.id, id, ['OWNER', 'MAINTAINER', 'DEVELOPER', 'REPORTER', 'MEMBER']);
+      
+      if (!hasAccess) {
+        throw new GraphQLError('No permission to view this project');
+      }
+      
       return prisma.project.findUnique({ where: { id } });
     },
     
-    projects: async () => {
-      return prisma.project.findMany();
+    projects: async (_: any, __: any, context: MercuriusContext) => {
+      const user = PermissionService.requireAuth(context.user);
+      
+      // Admins see all projects, others only their own
+      if (PermissionService.hasGlobalPermission(user, ['ADMIN'])) {
+        return prisma.project.findMany();
+      }
+      
+      return prisma.project.findMany({
+        where: {
+          OR: [
+            { ownerId: user.id },
+            { projectMembers: { some: { userId: user.id } } }
+          ]
+        }
+      });
     },
 
-    issue: async (_: any, { id }: { id: string }) => {
+    issue: async (_: any, { id }: { id: string }, context: MercuriusContext) => {
+      const user = PermissionService.requireAuth(context.user);
       ValidationService.validateId(id, 'Issue ID');
-      return prisma.issue.findUnique({ where: { id } });
+      
+      const issue = await prisma.issue.findUnique({ 
+        where: { id },
+        include: { project: true }
+      });
+      
+      if (!issue) {
+        throw new GraphQLError('Issue not found');
+      }
+      
+      // Check access to the project
+      const hasAccess = PermissionService.hasGlobalPermission(user, ['ADMIN']) ||
+                       await PermissionService.hasProjectPermission(user.id, issue.projectId, ['OWNER', 'MAINTAINER', 'DEVELOPER', 'REPORTER', 'MEMBER']) ||
+                       issue.reporterId === user.id ||
+                       issue.assigneeId === user.id;
+      
+      if (!hasAccess) {
+        throw new GraphQLError('No permission to view this issue');
+      }
+      
+      return prisma.issue.findUnique({ 
+        where: { id },
+        include: {
+          project: true,
+          reporter: true,
+          assignee: true,
+        }
+      });
     },
     
-    issues: async (_: any, filters: any) => {
+    issues: async (_: any, filters: any, context: MercuriusContext) => {
+      const user = PermissionService.requireAuth(context.user);
+      
       const where: any = {};
-      if (filters.projectId) where.projectId = filters.projectId;
+      
+      // Filter by project ID
+      if (filters.projectId) {
+        ValidationService.validateId(filters.projectId, 'Project ID');
+        
+        // Check access to the project
+        const hasAccess = PermissionService.hasGlobalPermission(user, ['ADMIN']) ||
+                         await PermissionService.hasProjectPermission(user.id, filters.projectId, ['OWNER', 'MAINTAINER', 'DEVELOPER', 'REPORTER', 'MEMBER']);
+        
+        if (!hasAccess) {
+          throw new GraphQLError('No permission to view issues in this project');
+        }
+        
+        where.projectId = filters.projectId;
+      } else {
+        // If no project specified, show only issues from projects where user is member
+        if (!PermissionService.hasGlobalPermission(user, ['ADMIN'])) {
+          const userProjects = await prisma.project.findMany({
+            where: {
+              OR: [
+                { ownerId: user.id },
+                { projectMembers: { some: { userId: user.id } } }
+              ]
+            },
+            select: { id: true }
+          });
+          
+          const projectIds = userProjects.map(p => p.id);
+          if (projectIds.length === 0) {
+            return []; // No projects = no issues
+          }
+          
+          where.projectId = { in: projectIds };
+        }
+      }
+      
+      // Additional filters
       if (filters.status) where.status = filters.status;
       if (filters.priority) where.priority = filters.priority;
       if (filters.type) where.type = filters.type;
-      if (filters.assigneeId) where.assigneeId = filters.assigneeId;
+      if (filters.assigneeId) {
+        ValidationService.validateId(filters.assigneeId, 'Assignee ID');
+        where.assigneeId = filters.assigneeId;
+      }
 
       return prisma.issue.findMany({ 
         where,
@@ -379,29 +479,246 @@ export const resolvers = {
         }
       });
     },
+
+    // Project Member Management
+    addProjectMember: async (_: any, args: any, context: MercuriusContext) => {
+      const user = PermissionService.requireAuth(context.user);
+      
+      ValidationService.validateId(args.projectId, 'Project ID');
+      ValidationService.validateId(args.userId, 'User ID');
+      
+      // Permission Check - only Admins or Project Owner/Maintainer can add members
+      if (!PermissionService.hasGlobalPermission(user, ['ADMIN']) &&
+          !await PermissionService.hasProjectPermission(user.id, args.projectId, ['OWNER', 'MAINTAINER'])) {
+        throw new GraphQLError('No permission to add project members');
+      }
+      
+      // Check if user is already a member
+      const existingMember = await prisma.projectMember.findUnique({
+        where: {
+          userId_projectId: {
+            userId: args.userId,
+            projectId: args.projectId
+          }
+        }
+      });
+      
+      if (existingMember) {
+        throw new GraphQLError('User is already a member of this project');
+      }
+      
+      return prisma.projectMember.create({
+        data: {
+          userId: args.userId,
+          projectId: args.projectId,
+          projectRole: args.projectRole || 'MEMBER',
+        },
+        include: {
+          user: true,
+          project: true,
+        }
+      });
+    },
+
+    updateProjectMemberRole: async (_: any, args: any, context: MercuriusContext) => {
+      const user = PermissionService.requireAuth(context.user);
+      
+      ValidationService.validateId(args.projectId, 'Project ID');
+      ValidationService.validateId(args.userId, 'User ID');
+      
+      // Permission Check - only Admins or Project Owner can change roles
+      if (!PermissionService.hasGlobalPermission(user, ['ADMIN']) &&
+          !await PermissionService.hasProjectPermission(user.id, args.projectId, ['OWNER'])) {
+        throw new GraphQLError('No permission to update project member roles');
+      }
+      
+      // Prevent user from changing their own role
+      if (args.userId === user.id) {
+        throw new GraphQLError('Cannot change your own project role');
+      }
+      
+      return prisma.projectMember.update({
+        where: {
+          userId_projectId: {
+            userId: args.userId,
+            projectId: args.projectId
+          }
+        },
+        data: {
+          projectRole: args.projectRole,
+        },
+        include: {
+          user: true,
+          project: true,
+        }
+      });
+    },
+
+    removeProjectMember: async (_: any, args: any, context: MercuriusContext) => {
+      const user = PermissionService.requireAuth(context.user);
+      
+      ValidationService.validateId(args.projectId, 'Project ID');
+      ValidationService.validateId(args.userId, 'User ID');
+      
+      // Permission Check - only Admins or Project Owner can remove members
+      if (!PermissionService.hasGlobalPermission(user, ['ADMIN']) &&
+          !await PermissionService.hasProjectPermission(user.id, args.projectId, ['OWNER'])) {
+        throw new GraphQLError('No permission to remove project members');
+      }
+      
+      // Prevent user from removing themselves
+      if (args.userId === user.id) {
+        throw new GraphQLError('Cannot remove yourself from project');
+      }
+      
+      await prisma.projectMember.delete({
+        where: {
+          userId_projectId: {
+            userId: args.userId,
+            projectId: args.projectId
+          }
+        }
+      });
+      
+      return true;
+    },
+
+    // Issue Management
+    deleteIssue: async (_: any, { id }: { id: string }, context: MercuriusContext) => {
+      const user = PermissionService.requireAuth(context.user);
+      ValidationService.validateId(id, 'Issue ID');
+      
+      const issue = await prisma.issue.findUnique({ where: { id } });
+      if (!issue) {
+        throw new GraphQLError('Issue not found');
+      }
+      
+      // Permission Check - only Issue Reporter, Assignee, or Project Owner/Admin can delete
+      const canDelete = PermissionService.hasGlobalPermission(user, ['ADMIN']) ||
+                       await PermissionService.hasProjectPermission(user.id, issue.projectId, ['OWNER', 'MAINTAINER']) ||
+                       issue.reporterId === user.id ||
+                       issue.assigneeId === user.id;
+      
+      if (!canDelete) {
+        throw new GraphQLError('No permission to delete this issue');
+      }
+      
+      await prisma.issue.delete({ where: { id } });
+      return true;
+    },
+
+    // Comment Management
+    updateComment: async (_: any, args: any, context: MercuriusContext) => {
+      const user = PermissionService.requireAuth(context.user);
+      ValidationService.validateId(args.id, 'Comment ID');
+      ValidationService.validateCommentContent(args.content);
+      
+      const comment = await prisma.comment.findUnique({ 
+        where: { id: args.id },
+        include: { issue: true }
+      });
+      
+      if (!comment) {
+        throw new GraphQLError('Comment not found');
+      }
+      
+      // Permission Check - only Comment Author or Project Owner/Admin can edit
+      const canEdit = PermissionService.hasGlobalPermission(user, ['ADMIN']) ||
+                     await PermissionService.hasProjectPermission(user.id, comment.issue.projectId, ['OWNER', 'MAINTAINER']) ||
+                     comment.authorId === user.id;
+      
+      if (!canEdit) {
+        throw new GraphQLError('No permission to edit this comment');
+      }
+      
+      return prisma.comment.update({
+        where: { id: args.id },
+        data: {
+          content: ValidationService.sanitizeText(args.content),
+        },
+        include: {
+          author: true,
+          issue: true,
+        }
+      });
+    },
+
+    deleteComment: async (_: any, { id }: { id: string }, context: MercuriusContext) => {
+      const user = PermissionService.requireAuth(context.user);
+      ValidationService.validateId(id, 'Comment ID');
+      
+      const comment = await prisma.comment.findUnique({ 
+        where: { id },
+        include: { issue: true }
+      });
+      
+      if (!comment) {
+        throw new GraphQLError('Comment not found');
+      }
+      
+      // Permission Check - only Comment Author or Project Owner/Admin can delete
+      const canDelete = PermissionService.hasGlobalPermission(user, ['ADMIN']) ||
+                       await PermissionService.hasProjectPermission(user.id, comment.issue.projectId, ['OWNER', 'MAINTAINER']) ||
+                       comment.authorId === user.id;
+      
+      if (!canDelete) {
+        throw new GraphQLError('No permission to delete this comment');
+      }
+      
+      await prisma.comment.delete({ where: { id } });
+      return true;
+    },
   },
 
   User: {
-    issues: async (parent: any) => {
+    issues: async (parent: any, __: any, context: MercuriusContext) => {
+      const user = PermissionService.requireAuth(context.user);
+      
+      // Users can only see their own issues, admins see all
+      if (parent.id !== user.id && !PermissionService.hasGlobalPermission(user, ['ADMIN'])) {
+        return [];
+      }
+      
       return prisma.issue.findMany({ 
         where: { reporterId: parent.id },
         include: { project: true, assignee: true },
         orderBy: { updatedAt: 'desc' }
       });
     },
-    assignedIssues: async (parent: any) => {
+    assignedIssues: async (parent: any, __: any, context: MercuriusContext) => {
+      const user = PermissionService.requireAuth(context.user);
+      
+      // Users can only see their own assigned issues, admins see all
+      if (parent.id !== user.id && !PermissionService.hasGlobalPermission(user, ['ADMIN'])) {
+        return [];
+      }
+      
       return prisma.issue.findMany({ 
         where: { assigneeId: parent.id },
         include: { project: true, reporter: true },
         orderBy: { updatedAt: 'desc' }
       });
     },
-    projects: async (parent: any) => {
+    projects: async (parent: any, __: any, context: MercuriusContext) => {
+      const user = PermissionService.requireAuth(context.user);
+      
+      // Users can only see their own projects, admins see all
+      if (parent.id !== user.id && !PermissionService.hasGlobalPermission(user, ['ADMIN'])) {
+        return [];
+      }
+      
       return prisma.project.findMany({
-        where: { members: { some: { id: parent.id } } },
+        where: { projectMembers: { some: { userId: parent.id } } },
       });
     },
-    projectMemberships: async (parent: any) => {
+    projectMemberships: async (parent: any, __: any, context: MercuriusContext) => {
+      const user = PermissionService.requireAuth(context.user);
+      
+      // Users can only see their own memberships, admins see all
+      if (parent.id !== user.id && !PermissionService.hasGlobalPermission(user, ['ADMIN'])) {
+        return [];
+      }
+      
       return prisma.projectMember.findMany({ 
         where: { userId: parent.id },
         include: { project: true }
@@ -410,19 +727,49 @@ export const resolvers = {
   },
 
   Project: {
-    issues: async (parent: any) => {
+    issues: async (parent: any, __: any, context: MercuriusContext) => {
+      const user = PermissionService.requireAuth(context.user);
+      
+      // Check if user has access to the project
+      const hasAccess = PermissionService.hasGlobalPermission(user, ['ADMIN']) ||
+                       await PermissionService.hasProjectPermission(user.id, parent.id, ['OWNER', 'MAINTAINER', 'DEVELOPER', 'REPORTER', 'MEMBER']);
+      
+      if (!hasAccess) {
+        return [];
+      }
+      
       return prisma.issue.findMany({ 
         where: { projectId: parent.id },
         include: { reporter: true, assignee: true },
         orderBy: { createdAt: 'desc' }
       });
     },
-    members: async (parent: any) => {
+    members: async (parent: any, __: any, context: MercuriusContext) => {
+      const user = PermissionService.requireAuth(context.user);
+      
+      // Check if user has access to the project
+      const hasAccess = PermissionService.hasGlobalPermission(user, ['ADMIN']) ||
+                       await PermissionService.hasProjectPermission(user.id, parent.id, ['OWNER', 'MAINTAINER', 'DEVELOPER', 'REPORTER', 'MEMBER']);
+      
+      if (!hasAccess) {
+        return [];
+      }
+      
       return prisma.user.findMany({
-        where: { projects: { some: { id: parent.id } } },
+        where: { projectMemberships: { some: { projectId: parent.id } } },
       });
     },
-    projectMembers: async (parent: any) => {
+    projectMembers: async (parent: any, __: any, context: MercuriusContext) => {
+      const user = PermissionService.requireAuth(context.user);
+      
+      // Check if user has access to the project
+      const hasAccess = PermissionService.hasGlobalPermission(user, ['ADMIN']) ||
+                       await PermissionService.hasProjectPermission(user.id, parent.id, ['OWNER', 'MAINTAINER', 'DEVELOPER', 'REPORTER', 'MEMBER']);
+      
+      if (!hasAccess) {
+        return [];
+      }
+      
       return prisma.projectMember.findMany({ 
         where: { projectId: parent.id },
         include: { user: true },

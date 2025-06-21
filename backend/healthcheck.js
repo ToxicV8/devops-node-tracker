@@ -2,14 +2,13 @@ const http = require('http');
 
 const options = {
   hostname: 'localhost',
-  port: process.env.PORT || 4000,
-  path: '/health', // GraphQL Health Endpoint
+  port: 4000,
+  path: '/',
   method: 'GET',
-  timeout: 3000
+  timeout: 5000
 };
 
-const healthCheck = http.request(options, (res) => {
-  console.log(`Health check status: ${res.statusCode}`);
+const req = http.request(options, (res) => {
   if (res.statusCode === 200) {
     process.exit(0);
   } else {
@@ -17,15 +16,13 @@ const healthCheck = http.request(options, (res) => {
   }
 });
 
-healthCheck.on('error', (err) => {
-  console.error('Health check failed:', err.message);
+req.on('error', () => {
   process.exit(1);
 });
 
-healthCheck.on('timeout', () => {
-  console.error('Health check timed out');
-  healthCheck.destroy();
+req.on('timeout', () => {
+  req.destroy();
   process.exit(1);
 });
 
-healthCheck.end(); 
+req.end(); 

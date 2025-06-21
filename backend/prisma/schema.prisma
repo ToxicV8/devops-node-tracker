@@ -1,4 +1,4 @@
-// Prisma Schema für Issue Tracker
+// Prisma Schema for Issue Tracker
 // Generates Prisma Client for TypeScript
 
 generator client {

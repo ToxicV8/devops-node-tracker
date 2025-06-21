@@ -1,51 +1,53 @@
-FROM node:24-alpine AS builder
+# Simple Node.js Dockerfile for Issue Tracker Backend
+
+FROM node:20-alpine
 
 WORKDIR /app
 
-RUN apk add --no-cache \
-    g++ \
-    make \
-    openssl-dev \
-    python3
+# Install system dependencies
+RUN apk add --no-cache openssl dumb-init
 
-COPY package*.json ./prisma/ ./
-
-RUN --mount=type=cache,target=/root/.npm npm ci --only=production=false
-
-RUN npx prisma generate
-
-COPY . .
-
-RUN npm run build
-
-FROM node:24-alpine AS production
-
+# Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nextjs -u 1001
+    adduser -S appuser -u 1001
 
-RUN apk add --no-cache \
-    dumb-init \
-    openssl
-
-WORKDIR /app
-
+# Copy package files first for better caching
 COPY package*.json ./
 
-RUN --mount=type=cache,target=/root/.npm npm ci --only=production && \
-    npm cache clean --force
+# Install dependencies
+RUN npm ci --only=production
 
-COPY --from=builder /app/prisma ./prisma/
-COPY --from=builder /app/dist ./dist/
-COPY --from=builder /app/src/graphql/schema.graphql ./graphql/schema.graphql
+# Copy application source
+COPY . .
 
-RUN chown -R nextjs:nodejs /app
-USER nextjs
+# Install TypeScript and build dependencies
+RUN npm install -g typescript && \
+    npm install --only=dev && \
+    npm run build
 
+# Copy GraphQL schema to dist folder
+RUN mkdir -p dist/graphql && \
+    cp src/graphql/schema.graphql dist/graphql/
+
+# Clean up dev dependencies
+RUN npm prune --production
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Set ownership
+RUN chown -R appuser:nodejs /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
 EXPOSE 4000
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD node healthcheck.js || exit 1
 
+# Start application
 ENTRYPOINT ["dumb-init", "--"]
-
 CMD ["node", "dist/index.js"]
