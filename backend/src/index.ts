@@ -12,7 +12,7 @@ const schema = readFileSync(join(__dirname, 'graphql', 'schema.graphql'), 'utf8'
 // Export function to create app for testing
 export async function createApp() {
   const app = fastify({
-    logger: {
+    logger: process.env.NODE_ENV === 'test' ? false : {
       level: process.env.LOG_LEVEL || 'info'
     }
   });
@@ -45,7 +45,7 @@ export async function createApp() {
   app.register(require('@fastify/rate-limit'), {
     max: parseInt(process.env.RATE_LIMIT_MAX || '100'),
     timeWindow: `${process.env.RATE_LIMIT_WINDOW || '15'} minutes`,
-    errorResponseBuilder: (request: any, context: any) => ({
+    errorResponseBuilder: (_: any, context: any) => ({
       code: 429,
       error: 'Too Many Requests',
       message: `Rate limit exceeded, retry in ${context.after}`,
@@ -105,7 +105,9 @@ export async function createApp() {
         return { user };
       } catch (error) {
         // Log error but don't fail request - let resolvers handle authentication
-        app.log.warn('Authentication failed:', error);
+        if (process.env.NODE_ENV !== 'test') {
+          app.log.warn('Authentication failed:', error);
+        }
         return { user: null };
       }
     }

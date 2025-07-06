@@ -289,6 +289,12 @@ export const resolvers = {
       const user = PermissionService.requireAuth(context.user);
       ValidationService.validateId(args.id, 'User ID');
       
+      // Check if user exists before permission checks
+      const existingUser = await prisma.user.findUnique({ where: { id: args.id } });
+      if (!existingUser) {
+        throw new GraphQLError('User not found');
+      }
+      
       // Validation
       if (args.username) ValidationService.validateUsername(args.username);
       if (args.email) ValidationService.validateEmail(args.email);
@@ -322,6 +328,12 @@ export const resolvers = {
       const user = PermissionService.requireAuth(context.user);
       ValidationService.validateId(id, 'User ID');
       PermissionService.requireGlobalPermission(user, ['ADMIN'], 'Only admins can delete users');
+
+      // Check if user exists before attempting to delete
+      const existingUser = await prisma.user.findUnique({ where: { id } });
+      if (!existingUser) {
+        throw new GraphQLError('User not found');
+      }
 
       await prisma.user.delete({ where: { id } });
       return true;
@@ -361,6 +373,12 @@ export const resolvers = {
       const user = PermissionService.requireAuth(context.user);
       ValidationService.validateId(args.id, 'Project ID');
       
+      // Check if project exists before permission checks
+      const existingProject = await prisma.project.findUnique({ where: { id: args.id } });
+      if (!existingProject) {
+        throw new GraphQLError('Project not found');
+      }
+      
       // Validation
       if (args.name) ValidationService.validateProjectName(args.name);
       if (args.description) args.description = ValidationService.sanitizeText(args.description);
@@ -381,6 +399,12 @@ export const resolvers = {
       const user = PermissionService.requireAuth(context.user);
       ValidationService.validateId(id, 'Project ID');
       
+      // Check if project exists before permission checks
+      const existingProject = await prisma.project.findUnique({ where: { id } });
+      if (!existingProject) {
+        throw new GraphQLError('Project not found');
+      }
+      
       // Permission Check
       if (!PermissionService.hasGlobalPermission(user, ['ADMIN']) &&
           !await PermissionService.hasProjectPermission(user.id, id, ['OWNER'])) {
@@ -396,6 +420,14 @@ export const resolvers = {
       
       ValidationService.validateIssueTitle(args.title);
       ValidationService.validateId(args.projectId, 'Project ID');
+      
+      // Permission Check - only project members can create issues
+      const canCreate = PermissionService.hasGlobalPermission(user, ['ADMIN']) ||
+                       await PermissionService.hasProjectPermission(user.id, args.projectId, ['OWNER', 'MAINTAINER', 'DEVELOPER', 'REPORTER', 'MEMBER']);
+      
+      if (!canCreate) {
+        throw new GraphQLError('No permission to create issues in this project');
+      }
       
       if (args.assigneeId && !await PermissionService.canAssignIssues(user.id, args.projectId)) {
         throw new GraphQLError('No permission to assign issues');
@@ -467,6 +499,26 @@ export const resolvers = {
       ValidationService.validateId(args.issueId, 'Issue ID');
       ValidationService.validateCommentContent(args.content);
       
+      // Get the issue to check permissions
+      const issue = await prisma.issue.findUnique({ 
+        where: { id: args.issueId },
+        include: { project: true }
+      });
+      
+      if (!issue) {
+        throw new GraphQLError('Issue not found');
+      }
+      
+      // Permission Check - only project members can comment
+      const canComment = PermissionService.hasGlobalPermission(user, ['ADMIN']) ||
+                        await PermissionService.hasProjectPermission(user.id, issue.projectId, ['OWNER', 'MAINTAINER', 'DEVELOPER', 'REPORTER', 'MEMBER']) ||
+                        issue.reporterId === user.id ||
+                        issue.assigneeId === user.id;
+      
+      if (!canComment) {
+        throw new GraphQLError('No permission to comment on this issue');
+      }
+      
       return prisma.comment.create({
         data: {
           content: ValidationService.sanitizeText(args.content),
@@ -526,6 +578,20 @@ export const resolvers = {
       ValidationService.validateId(args.projectId, 'Project ID');
       ValidationService.validateId(args.userId, 'User ID');
       
+      // Check if project member exists
+      const projectMember = await prisma.projectMember.findUnique({
+        where: {
+          userId_projectId: {
+            userId: args.userId,
+            projectId: args.projectId
+          }
+        }
+      });
+      
+      if (!projectMember) {
+        throw new GraphQLError('Project member not found');
+      }
+      
       // Permission Check - only Admins or Project Owner can change roles
       if (!PermissionService.hasGlobalPermission(user, ['ADMIN']) &&
           !await PermissionService.hasProjectPermission(user.id, args.projectId, ['OWNER'])) {
@@ -559,6 +625,20 @@ export const resolvers = {
       
       ValidationService.validateId(args.projectId, 'Project ID');
       ValidationService.validateId(args.userId, 'User ID');
+      
+      // Check if project member exists
+      const projectMember = await prisma.projectMember.findUnique({
+        where: {
+          userId_projectId: {
+            userId: args.userId,
+            projectId: args.projectId
+          }
+        }
+      });
+      
+      if (!projectMember) {
+        throw new GraphQLError('Project member not found');
+      }
       
       // Permission Check - only Admins or Project Owner can remove members
       if (!PermissionService.hasGlobalPermission(user, ['ADMIN']) &&

@@ -1,12 +1,13 @@
 import { GraphQLError } from 'graphql';
+import validator from 'validator';
 
 export class ValidationService {
   /**
    * Validates Email Format
    */
   static validateEmail(email: string): void {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+
+    if (!validator.isEmail(email)) {
       throw new GraphQLError('Invalid Email Format');
     }
   }
