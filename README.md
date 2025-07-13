@@ -13,6 +13,23 @@ A modern, full-stack issue tracking system built with Node.js, React, and GraphQ
 - **Comprehensive Testing**: Unit, integration, and end-to-end tests
 - **Internationalization**: Multi-language support (i18n)
 
+## 📸 Screenshots
+
+Dashboard:
+<img width="1894" height="955" alt="image" src="https://github.com/user-attachments/assets/d2bf6358-2f0d-4bf0-adfa-eb039f2c58c5" />
+
+Kanban-Board:
+<img width="1896" height="953" alt="image" src="https://github.com/user-attachments/assets/0af1c7a4-ef17-4951-b615-c46fd9a0b233" />
+
+Issues:
+<img width="1895" height="957" alt="image" src="https://github.com/user-attachments/assets/9c79917b-3de4-4b12-bbf6-8e5bc955c7ec" />
+
+Project Details:
+<img width="1900" height="961" alt="image" src="https://github.com/user-attachments/assets/903577b4-d580-4ba8-aae4-6e0386fa6f47" />
+
+Settings:
+<img width="1914" height="963" alt="image" src="https://github.com/user-attachments/assets/c8767080-7850-491a-bcd3-36c3be7a6b29" />
+
 ## 🛠 Tech Stack
 
 ### Backend
