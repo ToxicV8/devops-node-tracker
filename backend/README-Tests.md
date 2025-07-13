@@ -1,99 +1,99 @@
-# Backend Tests
+# Backend Testing Documentation
 
-Dieses Dokument beschreibt das Test-Setup für das Backend.
+This document describes the testing setup for the backend.
 
-## 🧪 Test-Struktur
+## 🧪 Test Structure
 
 ```
 src/__tests__/
-├── setup.ts                    # Globales Test-Setup
+├── setup.ts                    # Global test setup
 ├── helpers/
-│   └── testClient.ts          # GraphQL Test-Client
+│   └── testClient.ts          # GraphQL test client
 ├── services/
-│   ├── AuthService.test.ts    # AuthService Tests
-│   └── ValidationService.test.ts # ValidationService Tests
+│   ├── AuthService.test.ts    # AuthService tests
+│   └── ValidationService.test.ts # ValidationService tests
 ├── graphql/
-│   ├── auth.test.ts           # Authentication Tests
-│   └── projects.test.ts       # Project Tests
+│   ├── auth.test.ts           # Authentication tests
+│   └── projects.test.ts       # Project tests
 └── integration/
-    └── app.test.ts            # Integration Tests
+    └── app.test.ts            # Integration tests
 ```
 
-## 🚀 Test-Setup
+## 🚀 Test Setup
 
-### Automatisches Setup (Empfohlen)
+### Automatic Setup (Recommended)
 
 ```bash
-# PostgreSQL Container starten und Tests ausführen
+# Start PostgreSQL container and run tests
 npm run test:setup
 ```
 
-### Manuelles Setup
+### Manual Setup
 
-1. **PostgreSQL Container starten:**
+1. **Start PostgreSQL container:**
    ```bash
-   # PostgreSQL Container starten (falls nicht läuft)
+   # Start PostgreSQL container (if not running)
    npm run docker:run
    ```
 
-2. **Tests ausführen:**
+2. **Run tests:**
    ```bash
-   # Tests mit automatischer Schema-Synchronisation
+   # Run tests with automatic schema synchronization
    npm test
    ```
 
-### Wie es funktioniert
+### How it Works
 
-- **Gleiche Datenbank, separates Schema:** Tests verwenden das `test` Schema in der gleichen PostgreSQL-Datenbank
-- **Automatische Schema-Synchronisation:** Das Prisma Schema wird automatisch mit dem `test` Schema synchronisiert
-- **Keine Konflikte:** Tests beeinflussen nicht die Entwicklungs-/Produktionsdaten im `public` Schema
+- **Same database, separate schema:** Tests use the `test` schema in the same PostgreSQL database
+- **Automatic schema synchronization:** The Prisma schema is automatically synchronized with the `test` schema
+- **No conflicts:** Tests don't affect development/production data in the `public` schema
 
-### Test-Skripte
+### Test Scripts
 
 ```bash
-# Alle Tests ausführen
+# Run all tests
 npm test
 
-# Tests im Watch-Modus
+# Run tests in watch mode
 npm run test:watch
 
-# Tests mit Coverage
+# Run tests with coverage
 npm run test:coverage
 
-# Spezifische Tests
+# Run specific tests
 npm test -- --testNamePattern="AuthService"
 npm test -- --testPathPattern="auth.test.ts"
 ```
 
-## 📊 Test-Coverage
+## 📊 Test Coverage
 
-Die Tests decken folgende Bereiche ab:
+The tests cover the following areas:
 
 ### ✅ Services (100%)
-- **AuthService**: JWT, Login, Passwort-Hashing
-- **ValidationService**: Input-Validierung
-- **PermissionService**: Berechtigungsprüfungen
+- **AuthService**: JWT, login, password hashing
+- **ValidationService**: Input validation
+- **PermissionService**: Permission checks
 
 ### ✅ GraphQL Resolvers (95%)
-- **Authentication**: Register, Login, Me Query
-- **Projects**: CRUD-Operationen mit Permissions
-- **Issues**: CRUD-Operationen (geplant)
-- **Comments**: CRUD-Operationen (geplant)
+- **Authentication**: Register, login, me query
+- **Projects**: CRUD operations with permissions
+- **Issues**: CRUD operations (planned)
+- **Comments**: CRUD operations (planned)
 
 ### ✅ Integration Tests (90%)
-- **App-Setup**: Health Check, CORS, Rate Limiting
-- **GraphQL-Endpoint**: Introspection, Error Handling
-- **Authentication Context**: Token-Validierung
+- **App setup**: Health check, CORS, rate limiting
+- **GraphQL endpoint**: Introspection, error handling
+- **Authentication context**: Token validation
 
-## 🛠️ Test-Utilities
+## 🛠️ Test Utilities
 
 ### TestClient
 
 ```typescript
-// Unauthentifizierter Client
+// Unauthenticated client
 const client = await createTestClient();
 
-// Authentifizierter Client
+// Authenticated client
 const authClient = await createAuthenticatedClient(userId);
 
 // GraphQL Query
@@ -119,7 +119,7 @@ const response = await client.mutate(`
 `, { username: 'test', password: 'test' });
 ```
 
-### Test-Utilities
+### Test Utilities
 
 ```typescript
 // Create test data
@@ -138,7 +138,7 @@ const project = await global.testUtils.createTestProject(prisma, {
 await global.testUtils.cleanDatabase(prisma);
 ```
 
-## 🔧 Test-Konfiguration
+## 🔧 Test Configuration
 
 ### Jest Configuration (`jest.config.js`)
 
@@ -158,7 +158,7 @@ module.exports = {
 };
 ```
 
-### Test-Umgebung (`env.test`)
+### Test Environment (`env.test`)
 
 ```env
 NODE_ENV=test
@@ -168,7 +168,7 @@ BCRYPT_ROUNDS=4
 LOG_LEVEL=error
 ```
 
-## 📝 Test-Schreiben
+## 📝 Writing Tests
 
 ### Service Tests
 
@@ -231,46 +231,46 @@ describe('App Integration', () => {
 
 ## 🐛 Troubleshooting
 
-### Häufige Probleme
+### Common Issues
 
-1. **Datenbank-Verbindung:**
+1. **Database connection:**
    ```bash
-   # Test-DB Status prüfen
+   # Check test database status
    psql -d issue_tracker_test -c "SELECT 1;"
    ```
 
-2. **Prisma Schema:**
+2. **Prisma schema:**
    ```bash
-   # Schema neu generieren
+   # Regenerate schema
    npm run prisma:generate
    npm run prisma:push
    ```
 
-3. **Test-Timeouts:**
+3. **Test timeouts:**
    ```bash
-   # Timeout erhöhen
+   # Increase timeout
    npm test -- --testTimeout=30000
    ```
 
-### Debug-Modus
+### Debug Mode
 
 ```bash
-# Tests mit Debug-Output
+# Run tests with debug output
 DEBUG=* npm test
 
-# Spezifische Tests debuggen
+# Debug specific tests
 npm test -- --verbose --testNamePattern="AuthService"
 ```
 
-## 📈 Coverage-Report
+## 📈 Coverage Report
 
-Nach `npm run test:coverage`:
+After `npm run test:coverage`:
 
 - **HTML Report**: `coverage/index.html`
-- **Console Report**: Terminal-Output
+- **Console Report**: Terminal output
 - **LCOV Report**: `coverage/lcov.info`
 
-### Coverage-Ziele
+### Coverage Goals
 
 - **Statements**: >90%
 - **Branches**: >85%
@@ -303,8 +303,91 @@ Nach `npm run test:coverage`:
 
 ## 📚 Best Practices
 
-1. **Test-Isolation**: Jeder Test sollte unabhängig sein
-2. **Cleanup**: Datenbank nach jedem Test bereinigen
-3. **Realistische Daten**: Echte Test-Daten verwenden
-4. **Error Cases**: Auch Fehlerfälle testen
-5. **Performance**: Tests sollten schnell sein (<1s pro Test) 
+1. **Test Isolation**: Each test should be independent
+2. **Cleanup**: Clean database after each test
+3. **Realistic Data**: Use real test data
+4. **Error Cases**: Test error scenarios as well
+5. **Performance**: Tests should be fast (<1s per test)
+6. **Descriptive Names**: Use clear test names
+7. **Arrange-Act-Assert**: Follow AAA pattern
+8. **Mock External Dependencies**: Mock external services
+
+## 🧪 Test Types
+
+### Unit Tests
+- Test individual functions and methods
+- Mock dependencies
+- Fast execution
+- High coverage
+
+### Integration Tests
+- Test component interactions
+- Use real database
+- Test API endpoints
+- Verify business logic
+
+### End-to-End Tests
+- Test complete user workflows
+- Use real browser (if applicable)
+- Test critical paths
+- Verify user experience
+
+## 🔍 Test Data Management
+
+### Fixtures
+```typescript
+// Create reusable test data
+export const testUsers = {
+  admin: {
+    username: 'admin',
+    email: 'admin@example.com',
+    role: 'ADMIN'
+  },
+  developer: {
+    username: 'developer',
+    email: 'dev@example.com',
+    role: 'DEVELOPER'
+  }
+};
+```
+
+### Factories
+```typescript
+// Create dynamic test data
+export const createTestProject = (overrides = {}) => ({
+  name: 'Test Project',
+  description: 'A test project',
+  ...overrides
+});
+```
+
+## 📊 Performance Testing
+
+### Load Testing
+```bash
+# Run load tests
+npm run test:load
+
+# Run stress tests
+npm run test:stress
+```
+
+### Memory Testing
+```bash
+# Check for memory leaks
+npm run test:memory
+```
+
+## 🚨 Security Testing
+
+### Authentication Tests
+- Test invalid credentials
+- Test expired tokens
+- Test missing permissions
+- Test role escalation
+
+### Input Validation Tests
+- Test SQL injection attempts
+- Test XSS attempts
+- Test malformed data
+- Test boundary conditions 
