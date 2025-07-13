@@ -1,6 +1,6 @@
-# DevOps Node Tracker
+# DevOps Issue Tracker
 
-A modern, full-stack issue tracking system built with Node.js, React, and GraphQL, designed for DevOps teams and project management.
+A modern, full-stack issue tracking system built with Node.js, React, and GraphQL, designed for and project management and ticket system.
 
 ## 🚀 Features
 
