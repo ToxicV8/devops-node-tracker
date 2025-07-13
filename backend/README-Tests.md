@@ -21,25 +21,32 @@ src/__tests__/
 
 ## 🚀 Test-Setup
 
-### Voraussetzungen
+### Automatisches Setup (Empfohlen)
 
-1. **Test-Datenbank einrichten:**
+```bash
+# PostgreSQL Container starten und Tests ausführen
+npm run test:setup
+```
+
+### Manuelles Setup
+
+1. **PostgreSQL Container starten:**
    ```bash
-   # PostgreSQL Test-Datenbank erstellen
-   createdb issue_tracker_test
+   # PostgreSQL Container starten (falls nicht läuft)
+   npm run docker:run
    ```
 
-2. **Test-Umgebung konfigurieren:**
+2. **Tests ausführen:**
    ```bash
-   # Test-Umgebungsvariablen setzen
-   cp env.test .env.test
+   # Tests mit automatischer Schema-Synchronisation
+   npm test
    ```
 
-3. **Datenbank-Schema für Tests:**
-   ```bash
-   # Prisma Schema für Test-DB pushen
-   npm run prisma:push
-   ```
+### Wie es funktioniert
+
+- **Gleiche Datenbank, separates Schema:** Tests verwenden das `test` Schema in der gleichen PostgreSQL-Datenbank
+- **Automatische Schema-Synchronisation:** Das Prisma Schema wird automatisch mit dem `test` Schema synchronisiert
+- **Keine Konflikte:** Tests beeinflussen nicht die Entwicklungs-/Produktionsdaten im `public` Schema
 
 ### Test-Skripte
 
@@ -115,7 +122,7 @@ const response = await client.mutate(`
 ### Test-Utilities
 
 ```typescript
-// Test-Daten erstellen
+// Create test data
 const user = await global.testUtils.createTestUser(prisma, {
   username: 'testuser',
   email: 'test@example.com',
@@ -127,7 +134,7 @@ const project = await global.testUtils.createTestProject(prisma, {
   ownerId: user.id
 });
 
-// Datenbank bereinigen
+// Clean database
 await global.testUtils.cleanDatabase(prisma);
 ```
 

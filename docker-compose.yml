@@ -1,0 +1,168 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: devops-tracker-postgres
+    environment:
+      POSTGRES_DB: issuetracker_db
+      POSTGRES_USER: issuetracker
+      POSTGRES_PASSWORD: your_secure_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - devops-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U issuetracker -d issuetracker_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis (for caching and sessions)
+  redis:
+    image: redis:7-alpine
+    container_name: devops-tracker-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - devops-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: devops-tracker-backend
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://issuetracker:your_secure_password@postgres:5432/issuetracker_db
+      JWT_SECRET: your_super_secure_jwt_secret_here_min_32_chars
+      BCRYPT_ROUNDS: 12
+      REDIS_URL: redis://redis:6379
+      LOG_LEVEL: info
+      CORS_ORIGIN: http://localhost,http://localhost:3000,http://localhost:3002
+      RATE_LIMIT_MAX: 100
+      RATE_LIMIT_WINDOW: 15
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - devops-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Frontend Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:4000
+        VITE_GRAPHQL_ENDPOINT: /graphql
+        VITE_APP_NAME: DevOps Node Tracker
+        VITE_APP_VERSION: 1.0.0
+        VITE_ENABLE_ANALYTICS: false
+        VITE_ENABLE_DEBUG_MODE: false
+        VITE_COMPANY_NAME: DevOps Node Tracker GmbH
+        VITE_COMPANY_ADDRESS: Musterstraße 123, 12345 Musterstadt
+        VITE_COMPANY_PHONE: +49 123 456789
+        VITE_COMPANY_EMAIL: info@devops-tracker.com
+        VITE_COMPANY_WEBSITE: https://devops-tracker.com
+        VITE_CEO_NAME: Max Mustermann
+        VITE_REGISTER_COURT: Amtsgericht Musterstadt
+        VITE_REGISTER_NUMBER: HRB 12345
+        VITE_VAT_ID: DE123456789
+        VITE_FOUNDING_YEAR: 2024
+        VITE_DPO_NAME: Max Mustermann
+        VITE_DPO_EMAIL: datenschutz@devops-tracker.com
+        VITE_DPO_PHONE: +49 123 456789
+        VITE_PRIVACY_POLICY_DATE: 2024-01-01
+        VITE_GITHUB_URL: https://github.com/your-repo/devops-node-tracker
+    container_name: devops-tracker-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - devops-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Development Frontend (optional - for development)
+  frontend-dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: devops-tracker-frontend-dev
+    environment:
+      VITE_API_URL: http://localhost:4000
+      VITE_GRAPHQL_ENDPOINT: /graphql
+      VITE_APP_NAME: DevOps Node Tracker (Dev)
+      VITE_APP_VERSION: 1.0.0
+      VITE_ENABLE_ANALYTICS: false
+      VITE_ENABLE_DEBUG_MODE: true
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - devops-network
+    profiles:
+      - dev
+
+  # Adminer - Database Management Tool
+  adminer:
+    image: adminer:4.8.1
+    container_name: devops-tracker-adminer
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DESIGN: pepa-linha-dark
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - devops-network
+    profiles:
+      - dev
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  devops-network:
+    driver: bridge 

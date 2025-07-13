@@ -15,7 +15,8 @@ export class PermissionService {
    * Checks global user permissions
    */
   static hasGlobalPermission(user: User, requiredRoles: string[]): boolean {
-    return user.isActive && requiredRoles.includes(user.role);
+    const hasPermission = user.isActive && requiredRoles.includes(user.role);
+    return hasPermission;
   }
 
   /**
@@ -73,7 +74,7 @@ export class PermissionService {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) return false;
     
-    return this.hasGlobalPermission(user, ['ADMIN']) ||
+    return this.hasGlobalPermission(user, ['ADMIN', 'MANAGER']) ||
            await this.hasProjectPermission(userId, projectId, ['OWNER', 'MAINTAINER']);
   }
 
@@ -84,7 +85,7 @@ export class PermissionService {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) return false;
     
-    return this.hasGlobalPermission(user, ['ADMIN']) ||
+    return this.hasGlobalPermission(user, ['ADMIN', 'MANAGER']) ||
            await this.hasProjectPermission(userId, projectId, ['OWNER', 'MAINTAINER']);
   }
 

@@ -5,7 +5,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Install system dependencies
-RUN apk add --no-cache openssl dumb-init
+RUN apk add --no-cache openssl dumb-init curl
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \

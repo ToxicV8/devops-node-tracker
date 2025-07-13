@@ -133,6 +133,7 @@ type Mutation {
     password: String!
     name: String
   ): AuthPayload!
+  changePassword(currentPassword: String!, newPassword: String!): Boolean!
 
   # Project Mutations
   createProject(name: String!, description: String): Project!

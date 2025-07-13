@@ -4,17 +4,20 @@ import dotenv from 'dotenv';
 // Load test environment variables
 dotenv.config({ path: '.env.test' });
 
-// Create global Prisma instance
-const prisma = new PrismaClient();
+// Don't create PrismaClient here - we'll create it after setting environment variables
+let prisma: PrismaClient;
 
 // Global test setup
 beforeAll(async () => {
   // Set test environment
   process.env.NODE_ENV = 'test';
-  process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || 'postgresql://test:test_envd@localhost:5432/test_db';
+  process.env.DATABASE_URL = 'postgresql://test:test_envd@localhost:5432/test_db';
   process.env.JWT_SECRET = 'test-secret-key';
   process.env.BCRYPT_ROUNDS = '4'; // Faster for tests
   
+  // Create PrismaClient AFTER setting environment variables
+  prisma = new PrismaClient(); 
+
   // Clean database before all tests
   await global.testUtils.cleanDatabase();
 });
@@ -27,8 +30,8 @@ afterAll(async () => {
 
 // Global test utilities
 global.testUtils = {
-  // Global Prisma instance
-  prisma: prisma,
+  // Global Prisma instance - will be set in beforeAll
+  get prisma() { return prisma; },
 
   // Helper to create test data
   createTestUser: async (userData?: any) => {
