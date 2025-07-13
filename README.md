@@ -16,7 +16,7 @@ A modern, full-stack issue tracking system built with Node.js, React, and GraphQ
 ## 📸 Screenshots
 
 Dashboard:
-<img width="1894" height="955" alt="image" src="https://github.com/user-attachments/assets/d2bf6358-2f0d-4bf0-adfa-eb039f2c58c5" />
+<img width="1897" height="955" alt="image" src="https://github.com/user-attachments/assets/82055797-4ddf-4777-b409-7a59425031a1" />
 
 Kanban-Board:
 <img width="1896" height="953" alt="image" src="https://github.com/user-attachments/assets/0af1c7a4-ef17-4951-b615-c46fd9a0b233" />
