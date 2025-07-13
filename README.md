@@ -15,19 +15,22 @@ A modern, full-stack issue tracking system built with Node.js, React, and GraphQ
 
 ## 📸 Screenshots
 
-Dashboard:
+Dashboard, Light Mode:
+<img width="1898" height="964" alt="image" src="https://github.com/user-attachments/assets/c2d05547-c9ba-4dc2-b21c-9ff3e170c478" />
+
+Dashboard, Dark Mode:
 <img width="1897" height="955" alt="image" src="https://github.com/user-attachments/assets/82055797-4ddf-4777-b409-7a59425031a1" />
 
-Kanban-Board:
+Kanban-Board, Dark Mode:
 <img width="1896" height="953" alt="image" src="https://github.com/user-attachments/assets/0af1c7a4-ef17-4951-b615-c46fd9a0b233" />
 
-Issues:
+Issues, Dark Mode:
 <img width="1895" height="957" alt="image" src="https://github.com/user-attachments/assets/9c79917b-3de4-4b12-bbf6-8e5bc955c7ec" />
 
-Project Details:
+Project Details, Dark Mode:
 <img width="1900" height="961" alt="image" src="https://github.com/user-attachments/assets/903577b4-d580-4ba8-aae4-6e0386fa6f47" />
 
-Settings:
+Settings, Dark Mode:
 <img width="1914" height="963" alt="image" src="https://github.com/user-attachments/assets/c8767080-7850-491a-bcd3-36c3be7a6b29" />
 
 ## 🛠 Tech Stack
